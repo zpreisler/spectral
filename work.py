@@ -8,72 +8,74 @@ from matplotlib.pyplot import show,figure,imshow,draw,ion,pause,subplots,subplot
 
 from numpy import log,array,asarray,save
 
+from src.nets import Rugged
+from src.utils import plot_outputs, plot_targets
+from src.dataset import SpectraDataset
+
 from pathlib import Path
 from argparse import ArgumentParser
 import h5py,yaml
 import gc
 
-from src.nets import Rugged
-
-def load_h5(name):
-    with h5py.File(name,'r') as f:
-        x = f['inputs']
-        inputs = x[:]
-        y = f['targets']
-        targets = y[:]
-
-    return inputs,targets
-
-class SpectraDataset(Dataset):
-
-    def __init__(self,source):
-        inputs,self.targets = self.load_h5(source)
-
-        self.targets = self.targets[:,:,8:12]
-        
-        self.targets[self.targets < 0] = 0.01
-        self.targets = self.targets / self.targets.max()
-
-        self.inputs = inputs / inputs.max()
-
-        inputs[inputs <= 0] = 0.001
-        self.log_inputs = log(inputs)
-        self.log_inputs = self.log_inputs / self.log_inputs.max()
-
-        self.inputs = self.inputs.reshape((-1,1,self.inputs.shape[-1]))
-        self.log_inputs = self.log_inputs.reshape((-1,1,self.log_inputs.shape[-1]))
-
-        self.targets = self.targets.reshape((-1,self.targets.shape[-1]))
-
-        self.inputs = torch.from_numpy(self.inputs).float()
-        self.log_inputs = torch.from_numpy(self.log_inputs).float()
-
-        self.targets = torch.from_numpy(self.targets).float()
-
-        print('Inputs',self.inputs.shape)
-        print('Targets',self.targets.shape)
-
-    def __len__(self):
-        return len(self.inputs)
-
-    def __getitem__(self,idx):
-
-        inputs = self.inputs[idx]
-        log_inputs = self.log_inputs[idx]
-
-        targets = self.targets[idx]
-
-        return inputs,log_inputs,targets
-
-    def load_h5(self,name):
-        with h5py.File(name,'r') as f:
-            x = f['inputs']
-            inputs = x[:]
-            y = f['targets']
-            targets = y[:]
-
-        return inputs,targets
-
+#def load_h5(name):
+#    with h5py.File(name,'r') as f:
+#        x = f['inputs']
+#        inputs = x[:]
+#        y = f['targets']
+#        targets = y[:]
+#
+#    return inputs,targets
+#
+#class SpectraDataset(Dataset):
+#
+#    def __init__(self,source):
+#        inputs,self.targets = self.load_h5(source)
+#
+#        self.targets = self.targets[:,:,8:12]
+#        
+#        self.targets[self.targets < 0] = 0.01
+#        self.targets = self.targets / self.targets.max()
+#
+#        self.inputs = inputs / inputs.max()
+#
+#        inputs[inputs <= 0] = 0.001
+#        self.log_inputs = log(inputs)
+#        self.log_inputs = self.log_inputs / self.log_inputs.max()
+#
+#        self.inputs = self.inputs.reshape((-1,1,self.inputs.shape[-1]))
+#        self.log_inputs = self.log_inputs.reshape((-1,1,self.log_inputs.shape[-1]))
+#
+#        self.targets = self.targets.reshape((-1,self.targets.shape[-1]))
+#
+#        self.inputs = torch.from_numpy(self.inputs).float()
+#        self.log_inputs = torch.from_numpy(self.log_inputs).float()
+#
+#        self.targets = torch.from_numpy(self.targets).float()
+#
+#        print('Inputs',self.inputs.shape)
+#        print('Targets',self.targets.shape)
+#
+#    def __len__(self):
+#        return len(self.inputs)
+#
+#    def __getitem__(self,idx):
+#
+#        inputs = self.inputs[idx]
+#        log_inputs = self.log_inputs[idx]
+#
+#        targets = self.targets[idx]
+#
+#        return inputs,log_inputs,targets
+#
+#    def load_h5(self,name):
+#        with h5py.File(name,'r') as f:
+#            x = f['inputs']
+#            inputs = x[:]
+#            y = f['targets']
+#            targets = y[:]
+#
+#        return inputs,targets
+#
 #class Skip(nn.Module):
 #    def __init__(self,in_channels,out_channels):
 #        super().__init__()
@@ -133,39 +135,6 @@ class SpectraDataset(Dataset):
 #
 #        return z
 #
-def plot_targets(targets):
-
-    n = targets.shape[-1]
-    fig, ax = subplots(2,n,figsize=(n*4,5))
-
-    fig.subplots_adjust(left=.01,right=.99,top=.99,bottom=.01,wspace=0.05,hspace=0.05)
-
-    for i in range(n):
-        z = targets[:,i].reshape(69,94)
-        ax[0,i].imshow(z)
-        ax[0,i].set_xticklabels([])
-        ax[0,i].set_yticklabels([])
-
-        ax[1,i].imshow(z)
-        ax[1,i].set_xticklabels([])
-        ax[1,i].set_yticklabels([])
-
-    return ax
-
-def plot_outputs(ax,outputs):
-
-    n = outputs.shape[-1]
-
-    for i in range(n):
-        z = outputs[:,i].reshape(69,94)
-
-        ax[1,i].imshow(z)
-        ax[1,i].set_xticklabels([])
-        ax[1,i].set_yticklabels([])
-
-        draw()
-    pause(0.1)
-
 def main():
     """
     Main
