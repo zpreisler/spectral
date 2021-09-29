@@ -1,15 +1,19 @@
 #!/usr/bin/env python
 import torch
 from torch import nn,optim
-import torch.nn.functional as F
 from torch.utils.data import Dataset,DataLoader
 from torch.optim import Adam
 
-from matplotlib.pyplot import show,figure,imshow,draw,ion,pause
+from matplotlib.pyplot import show,figure,imshow,draw,ion,pause,subplots,subplots_adjust
 
-from numpy import log
+from numpy import log,array,asarray,save
 
-import h5py
+from pathlib import Path
+from argparse import ArgumentParser
+import h5py,yaml
+import gc
+
+from src.nets import Rugged
 
 def load_h5(name):
     with h5py.File(name,'r') as f:
@@ -21,25 +25,29 @@ def load_h5(name):
     return inputs,targets
 
 class SpectraDataset(Dataset):
-    def __init__(self,source):
-        self.inputs,self.targets = self.load_h5(source)
 
+    def __init__(self,source):
+        inputs,self.targets = self.load_h5(source)
 
         self.targets = self.targets[:,:,8:12]
         
         self.targets[self.targets < 0] = 0.01
         self.targets = self.targets / self.targets.max()
 
-        self.inputs[self.inputs <= 0] = 0.001
-        self.inputs = log(self.inputs)
-        self.inputs = self.inputs / self.inputs.max()
+        self.inputs = inputs / inputs.max()
 
+        inputs[inputs <= 0] = 0.001
+        self.log_inputs = log(inputs)
+        self.log_inputs = self.log_inputs / self.log_inputs.max()
 
         self.inputs = self.inputs.reshape((-1,1,self.inputs.shape[-1]))
+        self.log_inputs = self.log_inputs.reshape((-1,1,self.log_inputs.shape[-1]))
+
         self.targets = self.targets.reshape((-1,self.targets.shape[-1]))
-        print('targets.shape:',self.targets.shape)
 
         self.inputs = torch.from_numpy(self.inputs).float()
+        self.log_inputs = torch.from_numpy(self.log_inputs).float()
+
         self.targets = torch.from_numpy(self.targets).float()
 
         print('Inputs',self.inputs.shape)
@@ -49,10 +57,13 @@ class SpectraDataset(Dataset):
         return len(self.inputs)
 
     def __getitem__(self,idx):
+
         inputs = self.inputs[idx]
+        log_inputs = self.log_inputs[idx]
+
         targets = self.targets[idx]
 
-        return inputs,targets
+        return inputs,log_inputs,targets
 
     def load_h5(self,name):
         with h5py.File(name,'r') as f:
@@ -63,152 +74,215 @@ class SpectraDataset(Dataset):
 
         return inputs,targets
 
-class Rugged(nn.Module):
-    def __init__(self):
-        super().__init__()
+#class Skip(nn.Module):
+#    def __init__(self,in_channels,out_channels):
+#        super().__init__()
+#
+#        self.conv = nn.Sequential(
+#                nn.Conv1d(in_channels=in_channels, out_channels=in_channels, padding=2, kernel_size=5),
+#                nn.BatchNorm1d(in_channels),
+#                nn.ReLU(),
+#                nn.Conv1d(in_channels=in_channels, out_channels=in_channels, padding=2, kernel_size=5)
+#                )
+#
+#        self.pooling = nn.Sequential(
+#                nn.BatchNorm1d(in_channels),
+#                nn.ReLU(),
+#                nn.Conv1d(in_channels=in_channels, out_channels=out_channels, padding=0, kernel_size=1),
+#                nn.MaxPool1d(kernel_size=2, stride=2)
+#                )
+#
+#    def forward(self,x):
+#        y = self.conv(x)
+#        x = x + y
+#        x = self.pooling(x)
+#        return x
+#
+#class Rugged(nn.Module):
+#    def __init__(self):
+#        super().__init__()
+#
+#        self.l0 = nn.Sequential(
+#            nn.Conv1d(in_channels=1, out_channels=8, padding=2, kernel_size=5)
+#        )
+#
+#        self.skip_0 = Skip(8,8)
+#        self.skip_1 = Skip(8,16)
+#        self.skip_2 = Skip(16,1)
+#
+#        self.fc = nn.Sequential(
+#            nn.Linear(512,4),
+#            nn.Sigmoid()
+#        )
+#
+#    def forward(self,x,log_x):
+#
+#        x = self.l0(x)
+#        log_x = self.l0(log_x)
+#
+#        cat_x = torch.cat((x,log_x),2) 
+#
+#        x = self.skip_0(cat_x)
+#        x = self.skip_1(x)
+#        x = self.skip_2(x)
+#
+#        z = x.flatten(1)
+#        #print(z.shape)
+#
+#        z = self.fc(z)
+#
+#        return z
+#
+def plot_targets(targets):
 
-        self.l1 = nn.Sequential(
-            nn.Conv1d(in_channels=1, out_channels=32, padding=2, kernel_size=5),
+    n = targets.shape[-1]
+    fig, ax = subplots(2,n,figsize=(n*4,5))
 
-            nn.ReLU(),
-            nn.MaxPool1d(kernel_size=2, stride=2),
-        )
-        self.l2 = nn.Sequential(
-            nn.Conv1d(in_channels=32, out_channels=64, padding=2, kernel_size=5),
+    fig.subplots_adjust(left=.01,right=.99,top=.99,bottom=.01,wspace=0.05,hspace=0.05)
 
-            nn.ReLU(),
-            nn.MaxPool1d(kernel_size=2, stride=2),
-        )
-        self.l3 = nn.Sequential(
-            nn.Conv1d(in_channels=64, out_channels=128, padding=2, kernel_size=5),
+    for i in range(n):
+        z = targets[:,i].reshape(69,94)
+        ax[0,i].imshow(z)
+        ax[0,i].set_xticklabels([])
+        ax[0,i].set_yticklabels([])
 
-            nn.ReLU(),
-            nn.MaxPool1d(kernel_size=2, stride=2),
-        )
-        self.l4 = nn.Sequential(
-            nn.Conv1d(in_channels=128, out_channels=64, padding=2, kernel_size=5),
+        ax[1,i].imshow(z)
+        ax[1,i].set_xticklabels([])
+        ax[1,i].set_yticklabels([])
 
-            nn.ReLU(),
-            nn.MaxPool1d(kernel_size=2, stride=2),
-        )
-        self.l5 = nn.Sequential(
-            nn.Conv1d(in_channels=64, out_channels=32, padding=2, kernel_size=5),
+    return ax
 
-            nn.ReLU(),
-            nn.MaxPool1d(kernel_size=2, stride=2),
-        )
- 
-        self.fc = nn.Sequential(
-                nn.Linear(2048,4),
-                nn.Sigmoid()
-                )
+def plot_outputs(ax,outputs):
 
-    def forward(self,x):
+    n = outputs.shape[-1]
 
-        y = self.l1(x)
-        y = self.l2(y)
-        y = self.l3(y)
-        y = self.l4(y)
-        y = self.l5(y)
+    for i in range(n):
+        z = outputs[:,i].reshape(69,94)
 
-        z = y.flatten(1)
+        ax[1,i].imshow(z)
+        ax[1,i].set_xticklabels([])
+        ax[1,i].set_yticklabels([])
 
-        z = self.fc(z)
-
-        return z
+        draw()
+    pause(0.1)
 
 def main():
-    print('main')
+    """
+    Main
+    """
 
+    torch.set_num_threads(1)
+
+    parser = ArgumentParser()
+    parser.add_argument('path')
+    parser.add_argument('-n','--name',default=None)
+    parser.add_argument('-p','--plot',action='store_true')
+    parser.add_argument('-q','--quiet',action='store_true')
+    args = parser.parse_args()
+
+    with open(args.path,'r') as file:
+        config = yaml.load(file,Loader=yaml.FullLoader)
+
+    print(args,config)
+
+    model_name = config['model_name']
+    model_dir = config['model_dir']
+
+    if args.name:
+        model_name = args.name
     
-    train_data = SpectraDataset('data.h5')
-    train_dataloader = DataLoader(train_data,batch_size = 64,shuffle=True)
+    training_data_name = config['training_data_name']
+    training_data_dir = config['training_data_dir']
 
-    #inputs,targets = next(iter(train_dataloader))
-    #print(inputs,targets,inputs.shape,targets.shape)
+    train_data = SpectraDataset(training_data_dir + training_data_name)
+    train_dataloader = DataLoader(train_data,batch_size = config['batch_size'],shuffle=True)
 
     model = Rugged()
+    optimizer = optim.SGD(model.parameters(), lr = config['learning_rate'])
 
-    params = list(model.parameters())
-    #print(params)
+    criterion = nn.L1Loss()
+    criterion = getattr(nn,config['loss'])()
+    #criterion = nn.MSELoss()
+    #criterion = nn.HuberLoss(delta=2)
+    #criterion = nn.SmoothL1Loss()
 
-    optimizer = optim.SGD(model.parameters(), lr=0.1)
-    criterion = nn.MSELoss()
+    for param_tensor in model.state_dict():
+        print(param_tensor, "\t", model.state_dict()[param_tensor].size())
 
-    figure(1)
+    for var_name in optimizer.state_dict():
+        print(var_name, "\t", optimizer.state_dict()[var_name])
 
-    figure(2)
+    if 'checkpoint_name' in config:
+        checkpoint_name = config['checkpoint_name']
+        checkpoint_dir = config['checkpoint_dir']
 
-    figure(3)
+        checkpoint = torch.load(checkpoint_dir + checkpoint_name)
+        model.load_state_dict(checkpoint['model_state_dict'],strict=False)
+        optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
 
-    figure(4)
+    Path(model_dir).mkdir(parents=True, exist_ok=True)
 
-    figure(5)
-    z = train_data.targets[:,0].reshape(69,94)
-    imshow(z)
+    model.train()
 
-    figure(6)
-    z = train_data.targets[:,1].reshape(69,94)
-    imshow(z)
+    if args.plot:
+        ax = plot_targets(train_data.targets)
+        ion()
+        show()
 
-    figure(7)
-    z = train_data.targets[:,2].reshape(69,94)
-    imshow(z)
+    print('Number of batches',len(train_dataloader))
+    model.train()
 
-    figure(8)
-    z = train_data.targets[:,3].reshape(69,94)
-    imshow(z)
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    ion()
-    show()
+    #model.to(device)
+    
+    with open(model_dir + model_name + '_log','w') as f_log:
 
-    with open('log','w') as flog:
+        for epoch in range(512):
+            for j,batch_ in enumerate(train_dataloader):
 
-        for e in range(200):
-            for i,batch_ in enumerate(train_dataloader):
-                inputs,targets = batch_
+                inputs,log_inputs,targets = batch_
 
-                outputs = model(inputs)
+                outputs = model(inputs,log_inputs)
 
-                loss = torch.sqrt(criterion(outputs,targets))
+                loss = criterion(outputs,targets)
+
                 loss.backward()
                 optimizer.step()
                 optimizer.zero_grad()
 
+                f_log.write('%f\n'%loss.detach().numpy())
 
-                if i % 300 == 0:
+            if epoch % 1 == 0:
+                #loss_ = loss.detach().numpy()
+                print('epoch:',epoch)
+                print('loss: ',loss)
+                print(outputs[0],targets[0],targets[0]-outputs[0])
+                f_log.flush()
 
-                    x = model(train_data.inputs)
+                #x = model(train_data.inputs,train_data.log_inputs)
+                #with h5py.File(model_dir + 'outputs%d.h5'%epoch,'w') as f_h5:
+                #    x = model(train_data.inputs,train_data.log_inputs).detach().cpu().numpy()
+                #    f_h5.create_dataset('output',data = x)
+                #    del(x)
 
-                    z = x.detach()[:,0].numpy().reshape(69,94)
-                    figure(1)
-                    imshow(z)
+            if epoch % 4 == 0:
+                path = model_dir + model_name + '_%d.pth'%epoch
+                print('Checkpoint:',path)
+                torch.save({
+                    'epoch': epoch,
+                    'model_state_dict': model.state_dict(),
+                    'optimizer_state_dict': optimizer.state_dict(),
+                    'loss': loss
+                    },path)
 
-                    z = x.detach()[:,1].numpy().reshape(69,94)
-                    figure(2)
-                    imshow(z)
+            if args.plot: 
+                if epoch % 2 == 0:
+                    x = model(train_data.inputs,train_data.log_inputs)
+                    plot_outputs(ax,x.detach().numpy())
+                    del(x)
 
-                    z = x.detach()[:,2].numpy().reshape(69,94)
-                    figure(3)
-                    imshow(z)
-
-                    z = x.detach()[:,3].numpy().reshape(69,94)
-                    figure(4)
-                    imshow(z)
-
-                    draw()
-                    pause(0.001)
-
-                if i % 100 == 0:
-
-                    print(i,outputs.shape,targets.shape)
-                    print(outputs[0],targets[0],targets[0]-outputs[0])
-
-                    print('loss: %s'%loss.detach().numpy())
-                    flog.write('%f\n'%loss.detach().numpy())
-                    flog.flush()
-
-
+            gc.collect()
 
 if __name__ == '__main__':
     main()
