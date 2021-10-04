@@ -8,7 +8,7 @@ from matplotlib.pyplot import show,figure,imshow,draw,ion,pause,subplots,subplot
 
 from numpy import log,array,asarray,save
 
-from src.nets import Rugged
+from src.nets import Rugged,Rugged2
 from src.utils import plot_outputs, plot_targets
 from src.dataset import SpectraDataset
 
@@ -33,6 +33,8 @@ def main():
 
     print(args,config)
 
+    #torch.set_num_threads(4)
+
     model_name = config['model_name']
     model_dir = config['model_dir']
 
@@ -45,7 +47,7 @@ def main():
     train_data = SpectraDataset(training_data_dir + training_data_name)
     train_dataloader = DataLoader(train_data,batch_size = config['batch_size'],shuffle=True)
 
-    model = Rugged()
+    model = Rugged2(16)
 
     #for param_tensor in model.state_dict():
     #    print(param_tensor, "\t", model.state_dict()[param_tensor].size())
@@ -61,7 +63,7 @@ def main():
     #optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
 
     print(checkpoint_dir)
-    names = sorted(glob(checkpoint_dir + '*_?_*.pth'),key = lambda x: int(x[x.rfind('_') + 1 : x.rfind('.')]) )
+    names = sorted(glob(checkpoint_dir + '*.pth'),key = lambda x: int(x[x.rfind('_') + 1 : x.rfind('.')]) )
 
     for i,name in enumerate(names):
         outn = checkpoint_dir + '%02d'%i + '.jpeg'
@@ -75,6 +77,7 @@ def main():
         fig,ax = plot_targets(train_data.targets)
         plot_outputs(ax,x.detach().numpy())
         fig.savefig(outn)
+        del(x)
     
 
 if __name__ == '__main__':

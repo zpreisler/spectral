@@ -6,9 +6,6 @@ model_dir: 'model/test/'
 training_data_name: 'data.h5'
 training_data_dir: './'
 
-checkpoint_name: 'mse_11_192.pth'
-checkpoint_dir: 'model/series_L1loss/8/'
-
 loss: 'L1Loss'
-learning_rate: 0.1
+learning_rate: 0.3
 batch_size: 64

@@ -8,7 +8,7 @@ from matplotlib.pyplot import show,figure,imshow,draw,ion,pause,subplots,subplot
 
 from numpy import log,array,asarray,save
 
-from src.nets import Rugged
+from src.nets import Rugged2
 from src.utils import plot_outputs, plot_targets
 from src.dataset import SpectraDataset
 
@@ -26,6 +26,7 @@ def main():
     parser = ArgumentParser()
     parser.add_argument('path')
     parser.add_argument('-n','--name',default=None)
+    parser.add_argument('-w','--width',default=None,type=int)
     parser.add_argument('-p','--plot',action='store_true')
     parser.add_argument('-q','--quiet',action='store_true')
     args = parser.parse_args()
@@ -46,15 +47,16 @@ def main():
 
     train_data = SpectraDataset(training_data_dir + training_data_name)
     train_dataloader = DataLoader(train_data,batch_size = config['batch_size'],shuffle=True)
+    
+    if args.width:
+        print('width:',args.width)
+        model = Rugged2(w=args.width)
+    else:
+        model = Rugged2()
 
-    model = Rugged()
     optimizer = optim.SGD(model.parameters(), lr = config['learning_rate'])
 
-    criterion = nn.L1Loss()
     criterion = getattr(nn,config['loss'])()
-    #criterion = nn.MSELoss()
-    #criterion = nn.HuberLoss(delta=2)
-    #criterion = nn.SmoothL1Loss()
 
     #for param_tensor in model.state_dict():
     #    print(param_tensor, "\t", model.state_dict()[param_tensor].size())
@@ -107,7 +109,7 @@ def main():
                 print(outputs[0],targets[0],targets[0]-outputs[0])
                 f_log.flush()
 
-            if epoch % 5 == 0:
+            if epoch % 2 == 0:
                 path = model_dir + model_name + '_%d.pth'%epoch
                 print('Checkpoint:',path)
                 torch.save({

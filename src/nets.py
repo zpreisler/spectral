@@ -12,10 +12,10 @@ class Skip(nn.Module):
         super().__init__()
 
         self.conv = nn.Sequential(
-                nn.Conv1d(in_channels=in_channels, out_channels=in_channels, padding=2, kernel_size=5),
+                nn.Conv1d(in_channels=in_channels, out_channels=in_channels, padding=2, kernel_size=5,bias=False),
                 nn.BatchNorm1d(in_channels),
                 nn.ReLU(),
-                nn.Conv1d(in_channels=in_channels, out_channels=in_channels, padding=2, kernel_size=5)
+                nn.Conv1d(in_channels=in_channels, out_channels=in_channels, padding=2, kernel_size=5,bias=False)
                 )
 
         self.pooling = nn.Sequential(
@@ -58,6 +58,45 @@ class Rugged(nn.Module):
         x = self.skip_0(cat_x)
         x = self.skip_1(x)
         x = self.skip_2(x)
+
+        z = x.flatten(1)
+        #print(z.shape)
+
+        z = self.fc(z)
+
+        return z
+
+class Rugged2(nn.Module):
+    def __init__(self,w = 16):
+        super().__init__()
+
+        self.l0 = nn.Sequential(
+            nn.Conv1d(in_channels=1, out_channels=w, padding=2, kernel_size=5)
+        )
+
+        self.reduce = nn.MaxPool1d(kernel_size=2, stride=2)
+
+        self.skip_0 = Skip(w,w)
+        self.skip_1 = Skip(w,w)
+        self.skip_2 = Skip(w,w)
+        self.skip_3 = Skip(w,1)
+
+        self.fc = nn.Sequential(
+            nn.Linear(256,4),
+            nn.Sigmoid()
+        )
+
+    def forward(self,x,log_x):
+
+        x = self.l0(x)
+        log_x = self.l0(log_x)
+
+        cat_x = torch.cat((x,log_x),2) 
+
+        x = self.skip_0(cat_x)
+        x = self.skip_1(x) + self.reduce(x)
+        x = self.skip_2(x) + self.reduce(x)
+        x = self.skip_3(x)
 
         z = x.flatten(1)
         #print(z.shape)
