@@ -1,15 +1,15 @@
 #Yaml config file
 
-name: x1_cuda
-data: ../../data/Giulia_XRF/data4.h5
+name: train_CNNSkip_cuda_03
+data: ../../data/Giulia_XRF/data2.h5
 
 num_threads: 2
 device: cuda
 
 model: CNNSkip
 loss: L1Loss
-learning_rate: 0.3
-batch_size: 128
-n_epochs: 10
+learning_rate: 0.03
+batch_size: 256
+n_epochs: 100
 
 channels: 32

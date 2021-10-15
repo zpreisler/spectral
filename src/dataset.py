@@ -11,6 +11,8 @@ class SpectraDataset(Dataset):
     def __init__(self,source):
         self.inputs,self.targets = self.load_h5(source)
 
+        self.shape = self.targets.shape
+
         self.targets = self.targets.reshape((-1,self.targets.shape[-1]))
         self.inputs = self.inputs.reshape((-1,2,self.inputs.shape[-1]))
 

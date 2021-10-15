@@ -40,7 +40,6 @@ def main():
 
     print('updated_config:',config)
 
-    #Path(config['name']).mkdir(parents=True, exist_ok=True)
     try:
         os.mkdir(config['name'])
     except OSError as error:
@@ -106,8 +105,6 @@ def main():
                 'config': config,
                 'loss': loss},
                 path)
-
-
 
 if __name__ == '__main__':
     main()

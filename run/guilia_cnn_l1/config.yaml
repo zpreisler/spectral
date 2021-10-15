@@ -8,8 +8,8 @@ device: cpu
 
 model: CNNSkip
 loss: L1Loss
-learning_rate: 0.3
+learning_rate: 0.1
 batch_size: 128
-n_epochs: 1
+n_epochs: 50
 
 channels: 32
