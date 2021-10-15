@@ -1,7 +1,7 @@
 #Yaml config file
 
-name: x1 
-data: ../../data/Giulia_XRF/data.h5
+name: x1_cuda
+data: ../../data/Giulia_XRF/data4.h5
 
 num_threads: 2
 device: cuda
@@ -10,6 +10,6 @@ model: CNNSkip
 loss: L1Loss
 learning_rate: 0.3
 batch_size: 128
-n_epochs: 1
+n_epochs: 10
 
 channels: 32
