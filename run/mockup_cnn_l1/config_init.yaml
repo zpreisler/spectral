@@ -1,0 +1,11 @@
+#Yaml config file
+
+model_name: 'x0'
+model_dir: '../model/series_L1loss_2/'
+
+training_data_name: 'data.h5'
+training_data_dir: '../'
+
+loss: 'L1Loss'
+learning_rate: 0.1
+batch_size: 128

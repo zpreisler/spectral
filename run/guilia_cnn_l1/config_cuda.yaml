@@ -1,7 +1,7 @@
 #Yaml config file
 
 name: x1 
-data: data/Giulia_XRF/data.h5
+data: ../../data/Giulia_XRF/data.h5
 
 num_threads: 2
 device: cuda

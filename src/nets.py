@@ -4,7 +4,6 @@ from torch.utils.data import Dataset,DataLoader
 from torch.optim import Adam
 
 from matplotlib.pyplot import show,figure,imshow,draw,ion,pause,subplots,subplots_adjust
-
 from numpy import log,array,asarray,save
 
 class Skip(nn.Module):
@@ -31,69 +30,31 @@ class Skip(nn.Module):
         x = self.pooling(x)
         return x
 
-class Rugged(nn.Module):
-    def __init__(self):
+class CNNSkip(nn.Module):
+    def __init__(self,channels = 16, kernel_size = 5):
         super().__init__()
 
         self.l0 = nn.Sequential(
-            nn.Conv1d(in_channels=1, out_channels=8, padding=2, kernel_size=5)
-        )
-
-        self.skip_0 = Skip(8,8)
-        self.skip_1 = Skip(8,16)
-        self.skip_2 = Skip(16,1)
-
-        self.fc = nn.Sequential(
-            nn.Linear(512,4),
-            nn.Sigmoid()
-        )
-
-    def forward(self,x,log_x):
-
-        x = self.l0(x)
-        log_x = self.l0(log_x)
-
-        cat_x = torch.cat((x,log_x),2) 
-
-        x = self.skip_0(cat_x)
-        x = self.skip_1(x)
-        x = self.skip_2(x)
-
-        z = x.flatten(1)
-        #print(z.shape)
-
-        z = self.fc(z)
-
-        return z
-
-class Rugged2(nn.Module):
-    def __init__(self,w = 16):
-        super().__init__()
-
-        self.l0 = nn.Sequential(
-            nn.Conv1d(in_channels=1, out_channels=w, padding=2, kernel_size=5)
+            nn.Conv1d(in_channels=2, out_channels=channels, padding= int(kernel_size / 2), kernel_size=kernel_size)
         )
 
         self.reduce = nn.MaxPool1d(kernel_size=2, stride=2)
 
-        self.skip_0 = Skip(w,w)
-        self.skip_1 = Skip(w,w)
-        self.skip_2 = Skip(w,w)
-        self.skip_3 = Skip(w,1)
+        self.skip_0 = Skip(channels,channels)
+        self.skip_1 = Skip(channels,channels)
+        self.skip_2 = Skip(channels,channels)
+        self.skip_3 = Skip(channels,1)
 
         self.fc = nn.Sequential(
-            nn.Linear(256,4),
+            nn.Linear(128,4),
             nn.Sigmoid()
         )
 
-    def forward(self,x,log_x):
+    def forward(self,x):
 
         x = self.l0(x)
-        log_x = self.l0(log_x)
 
-        cat_x = torch.cat((x,log_x),2) 
-
-        x = self.skip_0(cat_x)
+        x = self.skip_0(x)
         x = self.skip_1(x) + self.reduce(x)
         x = self.skip_2(x) + self.reduce(x)
         x = self.skip_3(x)
